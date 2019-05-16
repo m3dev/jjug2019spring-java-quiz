@@ -7,27 +7,29 @@ public class Q1 {
     System.out.println(StringsInSameClass.isSameInstance() + ": A と B が同じ .class ファイルにある");
     System.out.println(StringsInDifferentClass.isSameInstance() + ": A と B が異なる class, 同じ jar にある");
     System.out.println(StringsInDifferentClassLoader.isSameInstance() + ": A と B が異なる ClassLoader にある");
+    /* 実行結果 (JDK 11.0.3):
+    true: A と B が同じ .class ファイルにある
+    true: A と B が異なる class, 同じ jar にある
+    true: A と B が異なる ClassLoader にある
+     */
   }
 
   private static class StringsInSameClass {
     public static final String A = "hoge";
     public static final String B = "hoge";
 
-    public static boolean isSameInstance() {
-      return A == B;
+    public static boolean isSameInstance() throws Exception {
+      // 普通に A == B と書くとコンパイル時に true に最適化されてしまうので reflection を利用
+      return getStringConstantFrom(StringsInSameClass.class, "A") == getStringConstantFrom(StringsInSameClass.class, "B");
     }
   }
 
   private static class StringsInDifferentClass {
-    private static class ContainerA {
-      public static final String A = "hoge";
-    }
-    private static class ContainerB {
-      public static final String B = "hoge";
-    }
+    public static final String A = "hoge";
 
-    public static boolean isSameInstance() {
-      return ContainerA.A == ContainerB.B;
+    public static boolean isSameInstance() throws Exception {
+      // 普通に A == Q1TestContainer.STRING と書くとコンパイル時に true に最適化されてしまうので reflection を利用
+      return getStringConstantFrom(StringsInDifferentClass.class, "A") == getStringConstantFrom(Q1TestContainer.class, "STRING");
     }
   }
 
@@ -41,7 +43,7 @@ public class Q1 {
       if (Objects.equals(klassA, klassB)) throw new AssertionError("Should load different class");
       if (Objects.equals(klassA.getClassLoader(), klassB.getClassLoader())) throw new AssertionError("Should use different ClassLoader");
 
-      return stringOf(klassA) == stringOf(klassB);
+      return getStringConstantFrom(klassA, "STRING") == getStringConstantFrom(klassB, "STRING");
     }
 
     /**
@@ -64,10 +66,10 @@ public class Q1 {
       };
       return temporaryClassLoader.loadClass(className);
     }
+  }
 
-    private static String stringOf(Class<?> containerClass) throws Exception {
-      return (String) containerClass.getDeclaredField("STRING").get(null);
-    }
+  private static String getStringConstantFrom(Class<?> containerClass, String fieldName) throws Exception {
+    return (String) containerClass.getDeclaredField(fieldName).get(null);
   }
 }
 
